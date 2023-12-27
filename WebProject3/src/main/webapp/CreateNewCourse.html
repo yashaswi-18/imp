@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+	<body bgcolor="cyan">
+		<h2>Create New Course</h2>
+		<form action="CreateNewCourse" method="post">
+			<pre>
+				Course ID: <input type="text" name="courseId"/>
+				
+				Title: <input type="text" name="courseTitle"/>
+				
+	            Duration: <input type="text" name="courseDuration"/>
+
+				Provider: <select name="courseProvider">
+					<option>SELECT</option>
+					<option>Coursera</option>
+					<option>Udemy</option>
+					<option>Edureka</option>
+					<option>Alison</option>
+					<option>GeeksForGeeks</option>
+				</select>
+				
+				Fees: <input type="text" name="courseFees"/>
+				
+				<input type="submit" value="CREATE"/>
+			</pre>
+		</form>
+	</body>
+</html>
