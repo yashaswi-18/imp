@@ -1,0 +1,1031 @@
+JDBC - In mysql first create table of your datbase given that class name 
+
+ step 1 :- file -> new -> java project -> jre 11 -> finish
+ step 2 :- create new folder ->lib -> paste that file -> mysql connector jar ->in lib folder
+ step 3 :- right click on project ->build path ->libraries -> module path ->add external jars -> project name in that lib folder click on it -> click on that mysql connector jar -> ok ->apply ->apply & close
+ step 4 :- src folder 
+
+                      1.book.java->class file ->getter settter constructor tostring
+
+
+                      2.DaoInterface ->create interface -> DaoInterface<T, K> 
+
+package day2;
+
+import java.util.Collection;
+
+public interface DaoInterface<T, K> {
+	
+	Collection<T>getAll(); //method to retrieve all the (objects)records
+	T getOne(K key); //method to retrieve single record based upon its identity (ID)
+	
+	void create(T t);//method create new record
+	
+	void update(T t);
+	
+   void deleteOne(K key);
+}
+
+
+                      3.BookDao.java ->create interface ->extended Interface add and search DaoInterface and change k and T value as per program
+
+
+package day2;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Collection;
+
+public class BookDao implements DaoInterface<Book, Integer> {
+
+	@Override
+	public Collection<Book> getAll() {
+		Collection<Book> allBooks = new ArrayList<>();
+	  String sqlQuery="select id ,title ,genre from book ";
+		
+		try(
+			Connection conn = JDBCUtils.buildConnection();
+			Statement stmt =conn.createStatement();
+			ResultSet rs = stmt.executeQuery(sqlQuery);
+		){
+			while(rs.next())
+			{
+				//reading the value
+				int id = rs.getInt(1);
+				String title = rs.getString(2);//title
+				String genre = rs.getString(3);//genre
+
+			//populating restaurant object based upon the values fetch from the records
+				Book currentBook = new Book(id,title,genre);
+				allBooks.add(currentBook);
+			}
+		
+	}
+	catch(Exception ex)
+	{
+			ex.printStackTrace();
+	}	
+	return allBooks;
+	
+	}
+	@Override
+	public Book getOne(Integer id) {
+		Book foundBook = null;
+		
+		try(
+				Connection conn = JDBCUtils.buildConnection();
+
+				){
+			String sqlQuery = "select id ,title ,genre from book where id=?";
+            PreparedStatement pstmt =conn.prepareStatement(sqlQuery);
+            pstmt.setInt(1, id);  //1-index , id 5 it is actual value
+            
+            ResultSet rs = pstmt.executeQuery();
+            
+            if(rs.next())
+            {
+            	int Book_id = rs.getInt(1);
+				String title = rs.getString(2);//title
+				String genre = rs.getString(3);//genre
+				
+				foundBook = new Book(id,title,genre);
+            }
+			
+		}
+		catch(Exception ex)
+		{
+			ex.printStackTrace();
+		}
+		return foundBook;
+	}
+	
+	@Override
+	
+	public void create(Book newBook)
+	{
+		String sqlQuery ="insert into book(id,title,genre) values (?,?,?)";
+		try(
+				Connection conn =JDBCUtils.buildConnection(); //buildconnection it inbuild available in jdbc
+				PreparedStatement pstmt = conn.prepareStatement(sqlQuery);
+				){
+		//extracting the values from the incoming book
+			//read the value from the object
+			int id=newBook.getBook_id();
+			String title=newBook.getTitle();
+			String genre = newBook.getGenre();
+			
+			//substituting the values for unknown parameters
+			pstmt.setInt(1, id);
+			pstmt.setString(2, title);
+			pstmt.setString(3, genre);
+			
+			int count = pstmt.executeUpdate();//call to database 
+			System.out.println(count + " record inserted");
+		}
+		catch(Exception ex)
+		{
+			ex.printStackTrace();
+		}
+	}
+	@Override
+	public void deleteOne(Integer id) {
+		// TODO Auto-generated method stub
+		String sqlQuery ="delete from book where id = ?";
+		
+		try(
+				Connection conn =JDBCUtils.buildConnection();
+				PreparedStatement pstmt = conn.prepareStatement(sqlQuery);
+				){
+			
+			//substituting the values for unknown parameters
+			pstmt.setInt(1, id);
+		
+			
+			int count = pstmt.executeUpdate();
+			System.out.println(count + " record deleted");
+		}
+		catch(Exception ex)
+		{
+			ex.printStackTrace();
+		}
+		
+	}
+	@Override
+	public void update(Book modifiedBook) {
+
+		String sqlQuery = "update book set title = ? , genre = ? where id = ? ";
+		try(
+				Connection conn =JDBCUtils.buildConnection();
+				PreparedStatement pstmt = conn.prepareStatement(sqlQuery);
+				){
+			
+			int id=modifiedBook.getBook_id();
+			String title=modifiedBook.getTitle();
+			String genre = modifiedBook.getGenre();
+			
+			//substituting the values for unknown parameters
+			
+			pstmt.setString(1, title);
+			pstmt.setString(2, genre);
+			pstmt.setInt(3, id);
+			
+			
+			int count =pstmt.executeUpdate();
+			System.out.println(count+ " record updated");
+			
+		}
+		catch(Exception ex)
+		{
+			ex.printStackTrace();
+		}
+		
+	}
+	
+	
+
+	
+
+}
+
+                      4.JDBCUtils -> class file
+
+package day2;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+
+
+public class JDBCUtils {
+//this class provides a functionality to obtain the connection to DB and returns to the same to the caller
+	
+	public static Connection buildConnection() throws Exception{
+		String driverClassName = "com.mysql.cj.jdbc.Driver";
+		
+			Class.forName(driverClassName);
+			
+			
+			
+			//2.Establish connection 
+			String connectionUrl="jdbc:mysql://localhost:3306/db?useSSL=false";
+			String userId="root";
+			String password="password";
+			
+			
+			Connection dbConnection=DriverManager.getConnection(connectionUrl,userId,password);
+			return dbConnection;
+	}
+}
+
+                      5.CRUDMain  -> main
+
+package day2;
+
+import java.util.Collection;
+
+public class CRUD_Main {
+
+	private static void showAllBooks()
+	{
+
+		DaoInterface<Book,Integer> idao = new BookDao();
+		Collection<Book> allAvailableBooks = idao.getAll();
+		allAvailableBooks.stream().forEach((b)-> System.out.println(b));
+		
+//		for(Book b : allAvailableBooks)
+//		{
+//			System.out.println(b);
+//		}
+		
+	}
+	private static void showOneBoook()
+	{
+		DaoInterface<Book,Integer> idao = new BookDao();
+		Book b1 = idao.getOne(2);
+		if(b1!=null)
+		{
+	        System.out.println(b1);
+
+		}
+        else {
+        	System.out.println("This book info does not exist");
+        }
+	}
+	
+	private static void createNewRecord()
+	{
+		DaoInterface<Book,Integer> idao = new BookDao();
+        Book b2 = new Book(4,"angular","panchshil");
+        idao.create(b2);
+        
+	}
+	
+	private static void updateRecord()
+	{
+		DaoInterface<Book,Integer> idao = new BookDao();
+		//obtainng the restaurant which is tobe modified
+        Book currentBook  = idao.getOne(4);
+        //Maing some chnages using setters
+        currentBook.setTitle("react");
+        currentBook.setGenre("Ram");
+        //sending this mdified state to update method to reflect the changes into the database
+        idao.update(currentBook);
+        
+	}
+	private static void deleteOneRecord()
+	{
+		DaoInterface<Book,Integer> idao = new BookDao();
+        
+        idao.deleteOne(3);
+        
+	}
+	
+	
+	
+	public static void main(String[] args) {
+		
+		System.out.println("************Displaying All Books Information********************");
+		showAllBooks();
+		
+		System.out.println("*************Display the one Book Information********************");
+		//showOneBoook();
+		
+		System.out.println("*****************Insert new record*******************");
+		//createNewRecord();
+		
+		System.out.println("*****************Update the record*******************");
+		//updateRecord();
+		
+		System.out.println("*****************Delete one record*******************");
+		//deleteOneRecord();
+	}
+
+}
+
+
+
+
+Hibernate
+
+step 1 :- create maven project -> checked the box->create simple project -> groupid - projectname.hibernate  ->artifactid - Hibernate_project -> name ->Hibernate Project
+
+step 2 :- create new folder ->lib -> paste that file -> mysql connector jar ->in lib folder
+ step 3 :- right click on project ->build path ->libraries -> module path ->add external jars -> project name in that lib folder click on it -> click on that mysql connector jar -> ok ->apply ->apply & close 
+
+step 4:- After creating project open pom file and add code in that (change name as per your project)
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>Course.hibernate</groupId>
+  <artifactId>Hibernate_Courseproject</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>Hibernate_Courseproject</name>
+  
+  <properties>
+	  <maven.compiler.source>11</maven.compiler.source>
+	  <maven.compiler.target>11</maven.compiler.target>
+  </properties>
+  
+  <dependencies>
+	  <dependency>
+    <groupId>org.hibernate</groupId>
+    <artifactId>hibernate-core</artifactId>
+    <version>5.6.10.Final</version>
+       </dependency>
+  </dependencies>
+</project>
+ 
+
+step 5 :- right click on project -> find maven ->update project
+
+step 6 :- create day1.beans-> 1.course.java - class file 
+
+package day8.beans;
+
+public class Course {
+
+	private int courseId;
+	   private String title;
+	   private int duration ;
+	   private String provider;
+	   private int fees;
+	   
+	public Course(int courseId, String title, int duration, String provider, int fees) {
+		super();
+		this.courseId = courseId;
+		this.title = title;
+		this.duration = duration;
+		this.provider = provider;
+		this.fees = fees;
+	}
+	public int getCourseId() {
+		return courseId;
+	}
+	public void setCourseId(int courseId) {
+		this.courseId = courseId;
+	}
+	public String getTitle() {
+		return title;
+	}
+	public void setTitle(String title) {
+		this.title = title;
+	}
+	public int getDuration() {
+		return duration;
+	}
+	public void setDuration(int duration) {
+		this.duration = duration;
+	}
+	public String getProvider() {
+		return provider;
+	}
+	public void setProvider(String provider) {
+		this.provider = provider;
+	}
+	public int getFees() {
+		return fees;
+	}
+	public void setFees(int fees) {
+		this.fees = fees;
+	}
+	public Course() {
+		// TODO Auto-generated constructor stub
+	}
+	@Override
+	public String toString() {
+		return "Course [courseId=" + courseId + ", title=" + title + ", duration=" + duration + ", provider=" + provider
+				+ ", fees=" + fees + "]";
+	}
+	
+
+}
+
+                             2.HibernateMain - class file 
+
+
+package day8.beans;
+
+import java.io.Serializable;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+
+import day8.utils.HibernateUtils;
+
+
+
+
+public class HibernateMain {
+	
+	
+	
+	private static void deleteOneCourse()
+	{
+		
+		//step 1
+		SessionFactory factory = HibernateUtils.getSessionFactory();
+	    Session session = factory.openSession();
+	   	    
+	    Class<Course> entityClassType = Course.class;
+	    	  
+	    Serializable entityId = 109;
+	       
+	    Course foundCourse = session.load(entityClassType, entityId);
+	    
+	    //step 2
+	    
+	    Transaction tx = session.beginTransaction();
+	    
+	    //step 3 
+	    
+	    session.delete(foundCourse);
+	    
+	    //step 4
+	    
+	    tx.commit();
+	    session.close();
+	    factory.close();
+	    System.out.println("Course is deleted");
+	    
+	    
+	}
+	private static void updateCourse()
+	{
+		
+		//step 1
+		SessionFactory factory = HibernateUtils.getSessionFactory();
+	    Session session = factory.openSession();
+	   	    
+	    Class<Course> entityClassType = Course.class;
+	    	  
+	    Serializable entityId = 109;
+	       
+	    Course foundCourse = session.load(entityClassType, entityId);
+	    
+	    //step 2
+	    Transaction tx = session.beginTransaction();
+	    
+	    
+	    //step 3
+	    
+	    foundCourse.setTitle("good night");
+	    foundCourse.setDuration(1000);
+	    
+	    //step 4
+	    tx.commit();
+	    session.close();
+	    factory.close();
+	    System.out.println("Course is updated");
+	}
+	
+	
+	private static void showOneCourse()
+	{
+		SessionFactory factory = HibernateUtils.getSessionFactory();
+	    Session session = factory.openSession();
+	    
+	    //specifying the entity specific class type using a refrences type 'Class' class
+	    
+	    Class<Course> entityClassType =Course.class;
+	    
+	    //classEmployee type = Employee.class;
+	    
+	    //specifying the identity in the form of java.io.serializable
+	    Serializable entityId = 110;
+	   // Integer i ;
+	    
+	    Course foundCourse = session.load(entityClassType, entityId);
+	    System.out.println(foundCourse);
+	    session.close();
+	    factory.close();
+	    
+	}
+	
+	private static void createNewCourse() {
+		//Building Configuration Object
+		Configuration hibernateConfig = new Configuration();//Looks for hibernate.properties
+		//Obtaining SessionFactory
+		hibernateConfig = hibernateConfig.configure();//Looks for hibernate.cfg.xml
+		SessionFactory hibernateFactory = hibernateConfig.buildSessionFactory();
+		//Obtaining Session
+		Session hibernateSession = hibernateFactory.openSession();
+		//Creating Entity Class Object
+		Course rst = new Course(113, "Hotel Sliversand", 200,"Thai",5000);
+		//Obtaining and Starting 'Transaction' using 'Session'
+		Transaction hibernateTransaction = hibernateSession.beginTransaction();
+		//Attaching the Entity Class Object to the "Session'
+			hibernateSession.save(rst);
+		//Committing the 'Transaction'
+		hibernateTransaction.commit();
+		//Closing the Session
+		hibernateSession.close();
+		//Closing the SessionFactory
+		hibernateFactory.close();
+		System.out.println("Course created successfully.");
+	}
+	
+		
+
+		public static void main(String[] args) {
+			// TODO Auto-generated method stub
+			createNewCourse();
+           // showOneCourse();
+			//updateCourse();
+			//deleteOneCourse();
+			
+		}
+
+
+	}
+
+
+
+
+step 7 :- create day1.utils ->HibernateUtils - class file
+
+package day8.utils;
+
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+public class HibernateUtils {
+	
+	
+//this is a utils class obtaining SessionFactory
+	public static  SessionFactory getSessionFactory()
+	{
+		Configuration hibernateConfig = new Configuration();//Looks for hibernate.properties
+		hibernateConfig = hibernateConfig.configure();//Looks for hibernate.cfg.xml
+		SessionFactory hibernateFactory = hibernateConfig.buildSessionFactory();
+		
+		return hibernateFactory;
+	}
+}
+
+
+step 8:- create day1.main  - annotation , hql you refer zip file of hibernate
+
+step 9 :- in src/main/resources  copy&paste that file & changes as per program
+
+1.Course.hbm.xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC 
+"-//Hibernate/Hibernate Mapping DTD//EN"
+"http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd"> 
+
+<hibernate-mapping>
+   <class name = "day8.beans.Course" table="Course_master" lazy = "false">
+      <id name = "courseId" type = "int" column="course_id"/>            
+      <property name = "title" column = "c_title" type = "string"/>
+      <property name = "duration" column = "c_duration" type = "int"/>  
+      <property name = "provider" column = "c_provider" type = "string"/>        
+      <property name = "fees" column = "c_fees" type = "int"/>         
+             
+   </class>
+</hibernate-mapping>
+
+2.hibernate.cfg.xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-configuration PUBLIC
+        "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+        "http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+<hibernate-configuration>
+    <session-factory>
+        <property name="hibernate.connection.driver_class">com.mysql.cj.jdbc.Driver</property>
+        <property name="hibernate.connection.url">jdbc:mysql://localhost:3306/db?useSSL=false</property>
+        <property name="hibernate.connection.username">root</property>
+        <property name="hibernate.connection.password">password</property>
+           
+        <property name="hibernate.dialect">org.hibernate.dialect.MySQL8Dialect</property>
+        <property name="hibernate.show_sql">true</property>
+        <property name="hibernate.hbm2ddl.auto">update</property>  
+        <mapping resource="Course.hbm.xml"/>              
+    </session-factory>
+</hibernate-configuration>
+
+
+
+Servlet
+
+step 1 :- open prespective -> java EE -> new -> file -> dynamic web project 
+
+step 2 :- target runtime -> apache tomcat path ->finish
+
+step 3 :- create new folder ->lib -> paste that file -> mysql connector jar ->in lib folder
+
+step 4 :- right click on project ->build path ->libraries -> module path ->add external jars -> project name in that lib folder click on it -> click on that mysql connector jar -> ok ->apply ->apply & close
+
+step 5 :- day1.bean -> course.java -> class
+
+package day4.bean;
+
+public class Course {
+
+	private int courseId;
+	   private String title;
+	   private int duration ;
+	   private String provider;
+	   private int fees;
+	   
+	   public Course(int courseId)
+	   {
+		   this.courseId=courseId;	   }
+	   
+	public Course(int courseId, String title, int duration, String provider, int fees) {
+		super();
+		this.courseId = courseId;
+		this.title = title;
+		this.duration = duration;
+		this.provider = provider;
+		this.fees = fees;
+	}
+	public int getCourseId() {
+		return courseId;
+	}
+	public void setCourseId(int courseId) {
+		this.courseId = courseId;
+	}
+	public String getTitle() {
+		return title;
+	}
+	public void setTitle(String title) {
+		this.title = title;
+	}
+	public int getDuration() {
+		return duration;
+	}
+	public void setDuration(int duration) {
+		this.duration = duration;
+	}
+	public String getProvider() {
+		return provider;
+	}
+	public void setProvider(String provider) {
+		this.provider = provider;
+	}
+	public int getFees() {
+		return fees;
+	}
+	public void setFees(int fees) {
+		this.fees = fees;
+	}
+	public Course() {
+		// TODO Auto-generated constructor stub
+	}
+	@Override
+	public String toString() {
+		return "Course [courseId=" + courseId + ", title=" + title + ", duration=" + duration + ", provider=" + provider
+				+ ", fees=" + fees + "]";
+	}
+	
+
+}
+
+
+step 6 :- day1.dao ->
+
+1.CourseDao.java
+
+package day4.dao;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Collection;
+
+import day4.bean.Course;
+import day4.utils.JDBCUtilsCourse;
+
+public class CourseDao implements DaoCourseInterface<Course, Integer> {
+
+	@Override
+	public Collection<Course> getAll() {
+		// TODO Auto-generated method stub
+		Collection<Course> allCourses = new ArrayList<>();
+
+		String sqlQuery = "select courseId , title, duration ,provider,fees from Course ";
+		
+		try(
+			Connection conn = JDBCUtilsCourse.buildConnection();
+			Statement stmt =conn.createStatement();
+			ResultSet rs = stmt.executeQuery(sqlQuery);
+		){
+			while(rs.next())
+			{
+				//reading the value
+				int courseId = rs.getInt(1);
+				String title = rs.getString(2);//title
+				int duration = rs.getInt(3);
+				String provider = rs.getString(4);
+				int fees = rs.getInt(5);
+
+			//populating restaurant object based upon the values fetch from the records
+				Course currentBook = new Course(courseId , title, duration ,provider,fees);
+				allCourses.add(currentBook);
+			}
+		
+	}
+	catch(Exception ex)
+	{
+			ex.printStackTrace();
+	}	
+	return allCourses;
+	
+	}
+
+	@Override
+	public Course getOne(Integer id) {
+          Course foundCourse = null;
+		
+		try(
+				Connection conn = JDBCUtilsCourse.buildConnection();
+
+				){
+			String sqlQuery = "select courseId , title, duration ,provider,fees from Course where courseId=?";
+            PreparedStatement pstmt =conn.prepareStatement(sqlQuery);
+            pstmt.setInt(1, id);  //1-index , id 5 it is actual value
+            
+            ResultSet rs = pstmt.executeQuery();
+            
+            if(rs.next())
+            {
+            	int courseId = rs.getInt(1);
+				String title = rs.getString(2);//title
+				int duration = rs.getInt(3);
+				String provider = rs.getString(4);
+				int fees = rs.getInt(5);
+				
+				foundCourse = new Course(courseId , title, duration ,provider,fees);
+            }
+			
+		}
+		catch(Exception ex)
+		{
+			ex.printStackTrace();
+		}
+		return foundCourse;
+	}
+
+	@Override
+	public void create(Course newCourse) {
+		String sqlQuery ="insert into Course(courseId,title, duration ,provider,fees) values (?,?,?,?,?)";
+		try(
+				Connection conn =JDBCUtilsCourse.buildConnection();
+				PreparedStatement pstmt = conn.prepareStatement(sqlQuery);
+				){
+		
+			
+			
+			int courseId = newCourse.getCourseId();
+			String title = newCourse.getTitle();
+			int duration = newCourse.getDuration();
+			String provider = newCourse.getProvider();
+			int fees =newCourse.getFees();
+			
+			pstmt.setInt(1, courseId);
+			pstmt.setString(2, title);
+			pstmt.setInt(3, duration);
+			pstmt.setString(4, provider);
+			pstmt.setInt(5, fees);
+			
+			int count = pstmt.executeUpdate();
+			System.out.println(count + " record inserted");
+		}
+		catch(Exception ex)
+		{
+			ex.printStackTrace();
+		}
+		
+	}
+
+	@Override
+	public void update(Course modifiedCourse) {
+		String sqlQuery = "update Course set title=?, duration=? ,provider=?,fees=? where courseId=? ";
+		try(
+				Connection conn =JDBCUtilsCourse.buildConnection();
+				PreparedStatement pstmt = conn.prepareStatement(sqlQuery);
+				){
+			
+			
+			String title = modifiedCourse.getTitle();
+			int duration = modifiedCourse.getDuration();
+			String provider = modifiedCourse.getProvider();
+			int fees =modifiedCourse.getFees();
+			int courseId = modifiedCourse.getCourseId();
+			
+			//substituting the values for unknown parameters
+			
+			pstmt.setString(1, title);
+			pstmt.setInt(2, duration);
+			pstmt.setString(3, provider);
+			pstmt.setInt(4, fees);
+			pstmt.setInt(5, courseId);
+			
+			int count =pstmt.executeUpdate();
+			System.out.println(count+ " record updated");
+			
+		}
+		catch(Exception ex)
+		{
+			ex.printStackTrace();
+		}
+		
+		
+	}
+
+	@Override
+	public void deleteOne(Integer id) {
+String sqlQuery ="delete from Course where courseId = ?";
+		
+		try(
+				Connection conn =JDBCUtilsCourse.buildConnection();
+				PreparedStatement pstmt = conn.prepareStatement(sqlQuery);
+				){
+			
+			//substituting the values for unknown parameters
+			pstmt.setInt(1, id);
+		
+			
+			int count = pstmt.executeUpdate();
+			System.out.println(count + " record deleted");
+		}
+		catch(Exception ex)
+		{
+			ex.printStackTrace();
+		}
+		
+	}
+	
+
+}
+
+
+2.DaoCourseServlet.java
+
+package day4.dao;
+
+import java.util.Collection;
+
+public interface DaoCourseInterface<T, K> {
+
+	Collection<T>getAll(); //method to retrieve all the (objects)records
+	T getOne(K key); //method to retrieve single record based upon its identity (ID)
+void create(T t);//method create new record
+	
+	void update(T t);
+	
+   void deleteOne(K key);
+}
+
+
+
+step 7 :- day1.servlet ->
+
+1.CreateNewCourseServlet.java
+
+package day4.servlet;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import day4.dao.CourseDao;
+import day4.bean.Course;
+import day4.dao.DaoCourseInterface;
+
+/**
+ * Servlet implementation class CreateNewCourseServlet
+ */
+@WebServlet("/CreateNewCourse")
+public class CreateNewCourseServlet extends HttpServlet {
+	private static final long serialVersionUID = 1L;
+
+	/**
+	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
+	 */
+	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		response.setContentType("text/html");
+		PrintWriter out = response.getWriter();
+		String c_id = request.getParameter("courseId");
+		String c_title = request.getParameter("courseTitle");
+		String c_duration = request.getParameter("courseDuration");
+		String c_provider = request.getParameter("courseProvider");
+		String c_fees = request.getParameter("courseFees");
+
+		
+		//Converting the Strings into Integers as required
+		int course_id = Integer.parseInt(c_id);
+		int course_duration = Integer.parseInt(c_duration);
+		int course_fees = Integer.parseInt(c_fees);
+
+		//System.out.println(course_id + " " + c_title + " " + course_duration + " " + c_provider + " " + course_fees);
+		
+		Course co = new Course(course_id, c_title, course_duration, c_provider,course_fees);
+		DaoCourseInterface<Course,Integer> idao = new CourseDao();
+		idao.create(co);
+		out.println("<h2>Course created successfully..</h2>");
+	}
+
+}
+
+
+
+2.ViewCourseServlet.java
+
+package day4.servlet;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import day4.bean.Course;
+import day4.dao.CourseDao;
+import day4.dao.DaoCourseInterface;
+
+/**
+ * Servlet implementation class ViewCourseServlet
+ */
+@WebServlet("/ViewCourseServlet")
+public class ViewCourseServlet extends HttpServlet {
+	private static final long serialVersionUID = 1L;
+
+	/**
+	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
+	 */
+	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		String courseIdString = request.getParameter("courseId");
+
+       
+            int courseId = Integer.parseInt(courseIdString);
+            
+    		DaoCourseInterface<Course,Integer> idao = new CourseDao();
+
+            Course course = idao.getOne(courseId);
+
+            response.setContentType("text/html");
+            PrintWriter out = response.getWriter();
+
+            if (course != null) {
+              
+                out.println("<h2 style='color:purple'>Course Details</h2>");
+                out.println("<p>Course ID: " + course.getCourseId() + "</p>");
+                out.println("<p>Course Name: " + course.getTitle()+ "</p>");
+                out.println("<p>Provider: " + course.getProvider() + "</p>");
+                out.println("<p>Fees: " + course.getFees() + "</p>");
+            } else {
+                out.println("<h2 style='color:red'>Enter valid Course ID , try again.</h2>");
+            }
+	}
+
+}
+
+
+step 8 :- day1.utils -> JDBCUtils.java
+
+package day4.utils;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+
+public class JDBCUtilsCourse {
+
+	public static Connection buildConnection() throws Exception{
+		String driverClassName = "com.mysql.cj.jdbc.Driver";
+		
+			Class.forName(driverClassName);
+			
+			
+			
+			//2.Establish connection 
+			String connectionUrl="jdbc:mysql://localhost:3306/db?useSSL=false";
+			String userId="root";
+			String password="password";
+			
+			
+			Connection dbConnection=DriverManager.getConnection(connectionUrl,userId,password);
+			return dbConnection;
+	}
+
+}
+
+
+
+
